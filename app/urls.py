@@ -9,7 +9,7 @@ from app import views
 urlpatterns = [
 
     # The home page
-    path('', views.index, name='book_compartment'),
+    path('', views.index, name='home'),
 
     # Matches any html file
 

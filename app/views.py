@@ -12,10 +12,7 @@ from django import template
 
 @login_required(login_url="/login/")
 def index(request):
-    context = {'segment': 'index'}
-
-    html_template = loader.get_template('index.html')
-    return HttpResponse(html_template.render(context, request))
+    return redirect('my_bookings')
 
 
 @login_required(login_url="/login/")
