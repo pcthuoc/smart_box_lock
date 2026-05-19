@@ -1,0 +1,70 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+
+// ── Cấu hình ──────────────────────────────────────────────
+const char* WIFI_SSID     = "YourWifi";
+const char* WIFI_PASSWORD = "YourPass";
+const char* MQTT_BROKER   = "103.252.136.76";
+const int   MQTT_PORT     = 1883;
+const int   LOCKER_ID     = 1;   // ← đổi theo từng tủ (Locker.pk trong DB)
+
+// Servo/relay pins cho 6 ngăn (GPIO tùy board)
+const int LOCK_PINS[7] = {0, 13, 12, 14, 27, 26, 25};  // index 1-6
+
+char TOPIC_SUB[40];   // smart_box/locker/<LOCKER_ID>
+char TOPIC_PUB[40];   // smart_box/status/<LOCKER_ID>
+
+WiFiClient   wifiClient;
+PubSubClient mqtt(wifiClient);
+
+// ── Callback nhận lệnh mở ─────────────────────────────────
+void onMessage(char* topic, byte* payload, unsigned int len) {
+    StaticJsonDocument<200> doc;
+    deserializeJson(doc, payload, len);
+
+    int compNum = doc["compartment"];   // 1-6
+    if (compNum < 1 || compNum > 6) return;
+
+    // Mở khóa ngăn (pulse relay/servo)
+    digitalWrite(LOCK_PINS[compNum], HIGH);
+    delay(500);
+    digitalWrite(LOCK_PINS[compNum], LOW);
+
+    // Báo lại server khi cửa đóng (sau khi user lấy đồ + đóng cửa)
+    // → trigger bằng reed switch, ở đây demo dùng delay
+    delay(5000);
+    char msg[64];
+    snprintf(msg, sizeof(msg), "{\"status\":\"closed\",\"compartment\":%d}", compNum);
+    mqtt.publish(TOPIC_PUB, msg);
+}
+
+// ── Setup ──────────────────────────────────────────────────
+void setup() {
+    Serial.begin(115200);
+    for (int i = 1; i <= 6; i++) {
+        pinMode(LOCK_PINS[i], OUTPUT);
+        digitalWrite(LOCK_PINS[i], LOW);
+    }
+
+    snprintf(TOPIC_SUB, sizeof(TOPIC_SUB), "smart_box/locker/%d", LOCKER_ID);
+    snprintf(TOPIC_PUB, sizeof(TOPIC_PUB), "smart_box/status/%d", LOCKER_ID);
+
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    mqtt.setServer(MQTT_BROKER, MQTT_PORT);
+    mqtt.setCallback(onMessage);
+}
+
+// ── Loop ───────────────────────────────────────────────────
+void loop() {
+    if (!mqtt.connected()) {
+        char clientId[30];
+        snprintf(clientId, sizeof(clientId), "locker_%d", LOCKER_ID);
+        if (mqtt.connect(clientId)) {
+            mqtt.subscribe(TOPIC_SUB, 1);   // QoS 1
+        }
+    }
+    mqtt.loop();
+}

@@ -1,0 +1,446 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %}Quản lý tủ{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== LOCKER GRID: 2 tủ/hàng ===== */
+.locker-grid-row { display: flex; flex-wrap: wrap; gap: 16px; }
+.locker-card-wrap { flex: 0 0 calc(50% - 8px); min-width: 0; }
+@media (max-width: 900px) { .locker-card-wrap { flex: 0 0 100%; } }
+
+/* ===== FRAME TỦ ===== */
+.locker-frame {
+  background: #1e2533;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  gap: 6px;
+  height: 210px;
+}
+.locker-hinge {
+  width: 3px;
+  background: linear-gradient(180deg,#2d3748,#4a5568,#2d3748);
+  border-radius: 2px;
+  margin: 6px 0;
+}
+
+/* ===== Ô NGĂN ===== */
+.comp-cell {
+  border-radius: 6px;
+  border: 2px solid #2d3748;
+  background: #16202d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  position: relative;
+  overflow: hidden;
+  transition: filter .15s;
+}
+.comp-cell:hover { filter: brightness(1.18); }
+
+/* màu theo trạng thái */
+.comp-cell.available  { border-color:#276749; background:linear-gradient(160deg,#1a2e24,#1d3a2a); }
+.comp-cell.occupied   { border-color:#975a16; background:linear-gradient(160deg,#2d1f06,#3d2a08); }
+.comp-cell.maintenance{ border-color:#9b2c2c; background:linear-gradient(160deg,#2d0f0f,#3d1515); }
+
+/* cột trái/phải lớn */
+.comp-col-side { flex:1; }
+
+/* cột giữa 4 ngăn nhỏ */
+.comp-col-middle { display:flex; flex-direction:column; gap:5px; flex:1.6; }
+.comp-col-middle .comp-cell { flex:1; }
+
+/* nội dung bên trong */
+.comp-num-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.45);
+  margin-bottom: 5px;
+}
+.comp-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-bottom: 5px;
+}
+.available   .comp-dot { background:#68d391; box-shadow:0 0 6px #68d391; }
+.occupied    .comp-dot { background:#f6ad55; box-shadow:0 0 6px #f6ad55; }
+.maintenance .comp-dot { background:#fc8181; box-shadow:0 0 6px #fc8181; }
+
+.comp-status-tag {
+  font-size: 8px; font-weight:700; letter-spacing:.5px;
+  padding: 2px 7px; border-radius: 8px;
+  text-transform: uppercase;
+}
+.available   .comp-status-tag { background:rgba(72,187,120,.2); color:#9ae6b4; }
+.occupied    .comp-status-tag { background:rgba(237,137,54,.2);  color:#fbd38d; }
+.maintenance .comp-status-tag { background:rgba(245,101,101,.2); color:#feb2b2; }
+
+.comp-user-tag {
+  font-size: 9px; color:rgba(255,255,255,.6);
+  text-align:center; max-width:100%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  margin-top: 3px;
+}
+.comp-action-btn {
+  margin-top: 6px;
+}
+.comp-action-btn .btn { font-size:9px; padding:2px 7px; border-radius:4px; }
+
+/* ngăn giữa: layout ngang */
+.comp-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 6px;
+  gap: 6px;
+}
+.comp-row .comp-num-tag  { margin:0; flex-shrink:0; width:44px; }
+.comp-row .comp-dot      { margin:0; flex-shrink:0; }
+.comp-row .comp-status-tag { flex-shrink:0; }
+.comp-row .comp-user-tag { flex:1; text-align:left; margin:0; font-size:9px; }
+.comp-row .comp-action-btn { margin:0; flex-shrink:0; }
+</style>
+{% endblock extra_css %}
+
+{% block content %}
+<main class="content">
+  {% include 'includes/navigation.html' %}
+
+  <div class="py-4">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb breadcrumb-dark breadcrumb-transparent">
+        <li class="breadcrumb-item"><a href="#"><span class="fas fa-home"></span></a></li>
+        <li class="breadcrumb-item active">Quản lý tủ</li>
+      </ol>
+    </nav>
+    <div class="d-flex justify-content-between w-100 flex-wrap">
+      <div class="mb-3 mb-lg-0">
+        <h1 class="h4">Quản lý tủ thông minh</h1>
+        <p class="mb-0">Danh sách tủ, trạng thái ngăn và điều khiển.</p>
+      </div>
+      <div>
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalAddLocker">
+          <span class="fas fa-plus mr-2"></span>Thêm tủ mới
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <div class="locker-grid-row">
+  {% for locker in lockers %}
+  <div class="locker-card-wrap">
+  <div class="card border-light shadow-sm mb-0">
+
+    <!-- Header tủ -->
+    <div class="card-header d-flex justify-content-between align-items-center py-2">
+      <div class="d-flex align-items-center">
+        {% if locker.qr_code %}
+          <img src="{{ locker.qr_code.url }}" alt="QR"
+               style="width:48px;height:48px;object-fit:contain;border:1px solid #dee2e6;border-radius:4px;"
+               class="mr-2 flex-shrink-0">
+        {% else %}
+          <div class="mr-2 d-flex align-items-center justify-content-center flex-shrink-0 bg-light border rounded"
+               style="width:48px;height:48px;">
+            <span class="fas fa-qrcode text-muted"></span>
+          </div>
+        {% endif %}
+        <div>
+          <div class="font-weight-bold" style="font-size:14px;">
+            {{ locker.name }}
+            {% if locker.is_online %}
+              <span class="badge badge-success ml-1" style="font-size:8px;vertical-align:middle;">ONLINE</span>
+            {% else %}
+              <span class="badge badge-secondary ml-1" style="font-size:8px;vertical-align:middle;">OFFLINE</span>
+            {% endif %}
+          </div>
+          <small class="text-muted">
+            <span class="fas fa-map-marker-alt mr-1"></span>{{ locker.location }}
+          </small>
+        </div>
+      </div>
+      <div class="d-flex align-items-center" style="gap:6px;">
+        {% if locker.qr_code %}
+          <a href="{{ locker.qr_code.url }}" download class="btn btn-xs btn-outline-secondary"
+             style="font-size:10px;padding:2px 7px;">
+            <span class="fas fa-download mr-1"></span>Tải QR
+          </a>
+        {% endif %}
+        <form method="POST" action="{% url 'regenerate_qr' locker.pk %}" class="mb-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-xs btn-outline-info"
+                  style="font-size:10px;padding:2px 7px;" title="Gen lại QR theo SITE_URL hiện tại">
+            <span class="fas fa-sync-alt mr-1"></span>Gen lại QR
+          </button>
+        </form>
+        <form method="POST" action="{% url 'toggle_online' locker.pk %}" class="mb-0">
+          {% csrf_token %}
+          <button type="submit" style="font-size:10px;padding:2px 8px;"
+            class="btn btn-xs {% if locker.is_online %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+            <span class="fas fa-power-off mr-1"></span>{% if locker.is_online %}Tắt{% else %}Bật{% endif %}
+          </button>
+        </form>
+        {% if locker.compartments.count < 6 %}
+        <form method="POST" action="{% url 'init_compartments' locker.pk %}" class="mb-0">
+          {% csrf_token %}
+          <button type="submit" style="font-size:10px;padding:2px 8px;" class="btn btn-xs btn-outline-primary">
+            <span class="fas fa-layer-group mr-1"></span>Tạo ngăn
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Layout vật lý -->
+    <div class="card-body p-2">
+      {% if locker.has_compartments %}
+      <div class="locker-frame">
+
+        {# CỘT TRÁI — Ngăn 1 #}
+        {% if locker.comp_left %}
+        {% with comp=locker.comp_left bk=locker.comp_left.active_bookings.0 %}
+        <div class="comp-cell comp-col-side {{ comp.status }}">
+          <div class="comp-num-tag">Ngăn {{ comp.number }}</div>
+          <div class="comp-dot"></div>
+          <span class="comp-status-tag">
+            {% if comp.status == 'available' %}Trống
+            {% elif comp.status == 'occupied' %}Dùng
+            {% else %}Bảo trì{% endif %}
+          </span>
+          {% if comp.status == 'occupied' and bk %}
+            <div class="comp-user-tag">{{ bk.user.get_full_name|default:bk.user.username }}</div>
+          {% endif %}
+          {% if comp.status != 'occupied' %}
+          <div class="comp-action-btn">
+            <form method="POST" action="{% url 'toggle_compartment' comp.pk %}">
+              {% csrf_token %}
+              {% if comp.status == 'available' %}
+                <button type="button" class="btn btn-warning"
+                        data-toggle="modal" data-target="#modalConfirmMaint"
+                        data-action="{% url 'toggle_compartment' comp.pk %}"
+                        data-num="{{ comp.number }}">
+                  <i class="fas fa-tools"></i>
+                </button>
+              {% else %}
+                <button type="submit" class="btn btn-success">
+                  <i class="fas fa-check"></i>
+                </button>
+              {% endif %}
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        {% endwith %}
+        {% endif %}
+
+        <div class="locker-hinge"></div>
+
+        {# CỘT GIỮA — Ngăn 2-5 #}
+        <div class="comp-col-middle">
+          {% for comp in locker.comp_middle %}
+          {% with bk=comp.active_bookings.0 %}
+          <div class="comp-cell {{ comp.status }}">
+            <div class="comp-row">
+              <div class="comp-num-tag">Ngăn {{ comp.number }}</div>
+              <div class="comp-dot"></div>
+              <span class="comp-status-tag">
+                {% if comp.status == 'available' %}Trống
+                {% elif comp.status == 'occupied' %}Dùng
+                {% else %}Bảo trì{% endif %}
+              </span>
+              {% if comp.status == 'occupied' and bk %}
+                <div class="comp-user-tag">{{ bk.user.get_full_name|default:bk.user.username }}</div>
+              {% endif %}
+              {% if comp.status != 'occupied' %}
+              <div class="comp-action-btn">
+                <form method="POST" action="{% url 'toggle_compartment' comp.pk %}">
+                  {% csrf_token %}
+                  {% if comp.status == 'available' %}
+                    <button type="button" class="btn btn-warning"
+                            data-toggle="modal" data-target="#modalConfirmMaint"
+                            data-action="{% url 'toggle_compartment' comp.pk %}"
+                            data-num="{{ comp.number }}">
+                      <i class="fas fa-tools"></i>
+                    </button>
+                  {% else %}
+                    <button type="submit" class="btn btn-success">
+                      <i class="fas fa-check"></i>
+                    </button>
+                  {% endif %}
+                </form>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endwith %}
+          {% endfor %}
+        </div>
+
+        <div class="locker-hinge"></div>
+
+        {# CỘT PHẢI — Ngăn 6 #}
+        {% if locker.comp_right %}
+        {% with comp=locker.comp_right bk=locker.comp_right.active_bookings.0 %}
+        <div class="comp-cell comp-col-side {{ comp.status }}">
+          <div class="comp-num-tag">Ngăn {{ comp.number }}</div>
+          <div class="comp-dot"></div>
+          <span class="comp-status-tag">
+            {% if comp.status == 'available' %}Trống
+            {% elif comp.status == 'occupied' %}Dùng
+            {% else %}Bảo trì{% endif %}
+          </span>
+          {% if comp.status == 'occupied' and bk %}
+            <div class="comp-user-tag">{{ bk.user.get_full_name|default:bk.user.username }}</div>
+          {% endif %}
+          {% if comp.status != 'occupied' %}
+          <div class="comp-action-btn">
+            <form method="POST" action="{% url 'toggle_compartment' comp.pk %}">
+              {% csrf_token %}
+              {% if comp.status == 'available' %}
+                <button type="button" class="btn btn-warning"
+                        data-toggle="modal" data-target="#modalConfirmMaint"
+                        data-action="{% url 'toggle_compartment' comp.pk %}"
+                        data-num="{{ comp.number }}">
+                  <i class="fas fa-tools"></i>
+                </button>
+              {% else %}
+                <button type="submit" class="btn btn-success">
+                  <i class="fas fa-check"></i>
+                </button>
+              {% endif %}
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        {% endwith %}
+        {% endif %}
+
+      </div>{# end locker-frame #}
+
+      <!-- Legend + stats -->
+      <div class="d-flex align-items-center justify-content-between mt-2 px-1">
+        <div style="font-size:10px;color:#888;display:flex;gap:10px;">
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#68d391;margin-right:3px;"></span>Trống</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f6ad55;margin-right:3px;"></span>Đang dùng</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#fc8181;margin-right:3px;"></span>Bảo trì</span>
+        </div>
+        <small class="text-muted" style="font-size:10px;">
+          {% for c in locker.compartments.all %}{% if c.status == 'available' %}{% if not forloop.first %},{% endif %}{{ c.number }}{% endif %}{% endfor %}
+          /{{ locker.compartments.count }} trống
+        </small>
+      </div>
+
+      {% else %}
+      <div class="text-center py-3 text-muted" style="font-size:13px;">
+        <span class="fas fa-box-open mb-1 d-block"></span>
+        Chưa có ngăn. <strong>Tạo 6 ngăn</strong> để bắt đầu.
+      </div>
+      {% endif %}
+    </div>
+
+  </div>{# end card #}
+  </div>{# end locker-card-wrap #}
+  {% empty %}
+  <div class="col-12">
+    <div class="card border-light shadow-sm">
+      <div class="card-body text-center py-5">
+        <span class="fas fa-th-large fa-4x text-muted mb-3 d-block"></span>
+        <p class="text-muted">Chưa có tủ nào. Nhấn <strong>"Thêm tủ mới"</strong> để bắt đầu.</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  </div>{# end locker-grid-row #}
+
+  <!-- Modal Thêm tủ -->
+  <div class="modal fade" id="modalAddLocker" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <form method="POST" action="{% url 'manage_lockers' %}">
+          {% csrf_token %}
+          <div class="modal-header">
+            <h2 class="h6 modal-title">
+              <span class="fas fa-plus mr-2"></span>Thêm tủ mới
+            </h2>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group mb-4">
+              <label for="lockername">Tên tủ <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text"><span class="fas fa-th-large"></span></span>
+                <input type="text" name="name" class="form-control" id="lockername"
+                       placeholder="VD: Tủ A - Tầng 1" required>
+              </div>
+            </div>
+            <div class="form-group mb-4">
+              <label for="lockerloc">Địa điểm <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text"><span class="fas fa-map-marker-alt"></span></span>
+                <input type="text" name="location" class="form-control" id="lockerloc"
+                       placeholder="VD: Hành lang tầng 1, toà nhà B" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="lockerdesc">Mô tả</label>
+              <textarea name="description" class="form-control" id="lockerdesc"
+                        rows="2" placeholder="Ghi chú thêm (tuỳ chọn)"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-link text-gray ml-auto" data-dismiss="modal">Huỷ</button>
+            <button type="submit" class="btn btn-primary">
+              <span class="fas fa-save mr-1"></span>Lưu
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Modal xác nhận bảo trì -->
+  <div class="modal fade" id="modalConfirmMaint" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title">
+            <span class="fas fa-tools mr-2 text-warning"></span>Xác nhận bảo trì
+          </h6>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1">Chuyển <strong id="maintCompName"></strong> sang chế độ <span class="text-warning font-weight-bold">Bảo trì</span>?</p>
+          <small class="text-muted">Ngăn sẽ không nhận đặt chỗ mới cho đến khi được kích hoạt lại.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link text-gray" data-dismiss="modal">Huỷ</button>
+          <form id="formConfirmMaint" method="POST" class="mb-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">
+              <span class="fas fa-tools mr-1"></span>Xác nhận
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+  $('#modalConfirmMaint').on('show.bs.modal', function(e) {
+    var btn = $(e.relatedTarget);
+    $('#maintCompName').text('Ngăn ' + btn.data('num'));
+    $('#formConfirmMaint').attr('action', btn.data('action'));
+  });
+  </script>
+  {% include 'includes/footer.html' %}
+</main>
+{% endblock %}

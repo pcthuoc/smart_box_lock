@@ -8,12 +8,14 @@ from django.conf.urls.static import static
 from django.urls import path, include  # add this
 
 urlpatterns = [
-    path('admin/', admin.site.urls),  # Django admin route
-    path('customers/', include("customers.urls")),  # Django customers route
-    path("", include("app.urls")),  # UI Kits Html files
-    path("", include("authentication.urls")),  # Auth routes - login / register
+    path('admin/', admin.site.urls),                          # Django admin route
+    path('customers/', include("customers.urls")),             # Profile route
+    path('lockers/', include("lockers.urls")),                 # Locker / QR route
+    path('bookings/', include("bookings.urls")),               # Booking route
+    path("", include("app.urls")),                            # UI Kits Html files
+    path("", include("authentication.urls")),                  # Auth routes - login / register
 ]
 
-if settings.DEVEL:
+if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

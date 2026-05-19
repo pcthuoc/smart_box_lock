@@ -27,7 +27,8 @@ def login_view(request):
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
-                return redirect("/customers/profile/")
+                next_url = request.GET.get('next') or '/bookings/my/'
+                return redirect(next_url)
             else:
                 msg = 'Invalid credentials'
         else:
@@ -48,10 +49,10 @@ def register_user(request):
             raw_password = form.cleaned_data.get("password1")
             user = authenticate(username=username, password=raw_password)
 
-            msg = 'User created - please <a href="/login">login</a>.'
-            success = True
-
-            # return redirect("/login/")
+            if user is not None:
+                login(request, user)
+                next_url = request.GET.get('next') or '/bookings/my/'
+                return redirect(next_url)
 
         else:
             msg = 'Form is not valid'

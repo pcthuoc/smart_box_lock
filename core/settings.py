@@ -37,7 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'app',  # Enable the inner app
-    'customers'
+    'customers',
+    'lockers',
+    'bookings',
 ]
 
 MIDDLEWARE = [
@@ -52,8 +54,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'core.urls'
-LOGIN_REDIRECT_URL = "home"   # Route defined in app/urls.py
-LOGOUT_REDIRECT_URL = "home"  # Route defined in app/urls.py
+LOGIN_REDIRECT_URL = "my_bookings"   # Route defined in app/urls.py
+LOGOUT_REDIRECT_URL = "login"  # Route defined in app/urls.py
 TEMPLATE_DIR = os.path.join(CORE_DIR, "core/templates")  # ROOT dir for templates
 
 TEMPLATES = [
@@ -73,6 +75,11 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+# ─── Session persistence ───────────────────────────────────
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30   # 30 ngày
+SESSION_SAVE_EVERY_REQUEST = True
+# ───────────────────────────────────────────────────────────
+
 
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
@@ -123,6 +130,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 STATIC_ROOT = os.path.join(CORE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(CORE_DIR, 'media')
+
+# URL gốc của site (dùng để gen QR code)
+SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
@@ -132,3 +142,11 @@ STATICFILES_DIRS = (
 )
 #############################################################
 #############################################################
+
+# ─── MQTT Configuration ────────────────────────────────────
+# Đổi các giá trị này trong .env hoặc trực tiếp ở đây
+MQTT_BROKER   = os.environ.get('MQTT_BROKER',   '103.252.136.76')
+MQTT_PORT     = int(os.environ.get('MQTT_PORT', 1883))
+MQTT_USERNAME = os.environ.get('MQTT_USERNAME', None)   # None = không auth
+MQTT_PASSWORD = os.environ.get('MQTT_PASSWORD', None)
+# ─────────────────────────────────────────────────────────────

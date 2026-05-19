@@ -1,0 +1,162 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %}Ngăn của tôi{% endblock %}
+
+{% block content %}
+<main class="content">
+  {% include 'includes/navigation.html' %}
+
+  <div class="py-4">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb breadcrumb-dark breadcrumb-transparent">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}"><span class="fas fa-home"></span></a></li>
+        <li class="breadcrumb-item active">Ngăn của tôi</li>
+      </ol>
+    </nav>
+    <div class="d-flex justify-content-between w-100 flex-wrap">
+      <div class="mb-3 mb-lg-0">
+        <h1 class="h4">Ngăn của tôi</h1>
+        <p class="mb-0">Danh sách các ngăn bạn đã và đang sử dụng.</p>
+      </div>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags }} alert-dismissible fade show mb-3" role="alert">
+        {{ msg }}
+        <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card border-light shadow-sm mb-4">
+    <div class="card-header d-flex align-items-center py-3">
+      <span class="fas fa-boxes mr-2 text-primary"></span>
+      <h6 class="mb-0 font-weight-bold">Tất cả ngăn</h6>
+      <span class="badge badge-secondary ml-auto">{{ bookings.count }} đặt chỗ</span>
+    </div>
+
+    {% if bookings %}
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-centered table-nowrap mb-0 rounded">
+          <thead class="thead-light">
+            <tr>
+              <th class="border-0 pl-3">Tủ / Ngăn</th>
+              <th class="border-0">Vị trí</th>
+              <th class="border-0">Gửi từ</th>
+              <th class="border-0">Ghi chú</th>
+              <th class="border-0 text-center">Trạng thái</th>
+              <th class="border-0 text-center">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for bk in bookings %}
+            <tr {% if bk.status == 'active' %}class="table-success-light"{% endif %}>
+              <td class="pl-3">
+                <div class="font-weight-bold">{{ bk.compartment.locker.name }}</div>
+                <small class="text-muted">Ngăn {{ bk.compartment.number }}</small>
+              </td>
+              <td>
+                <span class="fas fa-map-marker-alt mr-1 text-danger"></span>
+                <small>{{ bk.compartment.locker.location }}</small>
+              </td>
+              <td>
+                <small>{{ bk.started_at|date:"d/m/Y" }}</small><br>
+                <small class="text-muted">{{ bk.started_at|date:"H:i" }}</small>
+              </td>
+              <td>
+                {% if bk.note %}
+                  <small class="text-muted">{{ bk.note }}</small>
+                {% else %}
+                  <small class="text-muted">—</small>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if bk.status == 'active' %}
+                  <span class="badge badge-success px-2 py-1">
+                    <span class="fas fa-circle mr-1" style="font-size:7px;vertical-align:middle;"></span>
+                    Đang dùng
+                  </span>
+                {% elif bk.status == 'completed' %}
+                  <span class="badge badge-secondary px-2 py-1">
+                    <span class="fas fa-check mr-1"></span>Đã trả
+                  </span>
+                {% else %}
+                  <span class="badge badge-warning text-dark px-2 py-1">{{ bk.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if bk.status == 'active' %}
+                  <a href="{% url 'unlock_compartment' bk.unlock_token %}"
+                     class="btn btn-sm btn-success mr-1"
+                     title="Mở cửa ngăn">
+                    <span class="fas fa-lock-open"></span>
+                  </a>
+                  <button type="button"
+                          class="btn btn-sm btn-outline-danger"
+                          title="Trả ngăn"
+                          onclick="returnBooking('{{ bk.compartment.locker.name }}', {{ bk.compartment.number }}, '{% url "return_compartment" bk.unlock_token %}')">
+                    <span class="fas fa-sign-out-alt"></span>
+                  </button>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card-body text-center py-5">
+      <span class="fas fa-box-open fa-4x text-muted d-block mb-3"></span>
+      <h5 class="text-muted">Chưa có ngăn nào</h5>
+      <p class="text-muted mb-0">Quét mã QR tại tủ để đăng ký ngăn gửi đồ.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Modal xác nhận trả ngăn -->
+  <div class="modal fade" id="modalReturnBooking" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-0">
+          <h6 class="modal-title">
+            <span class="fas fa-sign-out-alt mr-2 text-danger"></span>Xác nhận trả ngăn
+          </h6>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body pt-2">
+          <p class="mb-1">Trả <strong id="returnCompName"></strong>?</p>
+          <small class="text-muted">Ngăn sẽ được giải phóng và sẵn sàng cho người khác.</small>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-link text-muted" data-dismiss="modal">Huỷ</button>
+          <form id="formReturnBooking" method="POST" class="mb-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+              <span class="fas fa-sign-out-alt mr-1"></span>Xác nhận trả
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'includes/footer.html' %}
+</main>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function returnBooking(locker, num, url) {
+  document.getElementById('returnCompName').textContent = locker + ' — Ngăn ' + num;
+  document.getElementById('formReturnBooking').action = url;
+  new bootstrap.Modal(document.getElementById('modalReturnBooking')).show();
+}
+</script>
+{% endblock %}

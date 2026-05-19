@@ -1,0 +1,417 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %}{{ locker.name }} — Chọn ngăn{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== LOCKER FRAME (giống manage_lockers) ===== */
+.locker-frame {
+  background: #1e2533;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  gap: 6px;
+  height: 250px;
+}
+.locker-hinge {
+  width: 3px;
+  background: linear-gradient(180deg,#2d3748,#4a5568,#2d3748);
+  border-radius: 2px;
+  margin: 6px 0;
+}
+.comp-cell {
+  border-radius: 6px;
+  border: 2px solid #2d3748;
+  background: #16202d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  position: relative;
+  overflow: hidden;
+  transition: filter .15s, transform .1s;
+}
+.comp-cell.available  { border-color:#276749; background:linear-gradient(160deg,#1a2e24,#1d3a2a); cursor:pointer; }
+.comp-cell.occupied   { border-color:#975a16; background:linear-gradient(160deg,#2d1f06,#3d2a08); }
+.comp-cell.maintenance{ border-color:#9b2c2c; background:linear-gradient(160deg,#2d0f0f,#3d1515); }
+.comp-cell.available:hover  { filter: brightness(1.25); transform: scale(1.02); }
+.comp-cell.mine { border-color:#2b6cb0 !important; background: linear-gradient(160deg,#0f1f35,#152840) !important; }
+.comp-cell.mine:hover { filter: brightness(1.2); }
+
+.comp-col-side { flex:1; }
+.comp-col-middle { display:flex; flex-direction:column; gap:5px; flex:1.6; }
+.comp-col-middle .comp-cell { flex:1; }
+
+.comp-num-tag {
+  font-size: 9px; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:rgba(255,255,255,.45); margin-bottom:4px;
+}
+.comp-dot {
+  width:8px; height:8px; border-radius:50%; margin-bottom:4px;
+}
+.available .comp-dot   { background:#68d391; box-shadow:0 0 6px #68d391; }
+.occupied  .comp-dot   { background:#f6ad55; box-shadow:0 0 6px #f6ad55; }
+.maintenance .comp-dot { background:#fc8181; box-shadow:0 0 6px #fc8181; }
+.mine .comp-dot        { background:#63b3ed !important; box-shadow:0 0 6px #63b3ed !important; }
+
+.comp-status-tag {
+  font-size:8px; font-weight:700; letter-spacing:.5px;
+  padding:2px 7px; border-radius:8px; text-transform:uppercase;
+}
+.available   .comp-status-tag { background:rgba(72,187,120,.2);  color:#9ae6b4; }
+.occupied    .comp-status-tag { background:rgba(237,137,54,.2);  color:#fbd38d; }
+.maintenance .comp-status-tag { background:rgba(245,101,101,.2); color:#feb2b2; }
+.mine        .comp-status-tag { background:rgba(99,179,237,.2) !important; color:#bee3f8 !important; }
+
+.comp-user-tag {
+  font-size:9px; color:rgba(255,255,255,.6);
+  text-align:center; max-width:100%; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; margin-top:3px;
+}
+.comp-action-btn { margin-top:5px; display:flex; gap:3px; justify-content:center; }
+.comp-action-btn .btn { font-size:9px; padding:2px 6px; border-radius:4px; }
+
+/* Cột giữa: layout ngang */
+.comp-row {
+  display:flex; align-items:center;
+  width:100%; padding:0 5px; gap:5px;
+}
+.comp-row .comp-num-tag  { margin:0; flex-shrink:0; width:40px; }
+.comp-row .comp-dot      { margin:0; flex-shrink:0; }
+.comp-row .comp-status-tag { flex-shrink:0; }
+.comp-row .comp-user-tag { flex:1; text-align:left; margin:0; }
+.comp-row .comp-action-btn { margin:0; flex-shrink:0; }
+</style>
+{% endblock extra_css %}
+
+{% block content %}
+<main class="content">
+  {% include 'includes/navigation.html' %}
+
+  <div class="py-4">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb breadcrumb-dark breadcrumb-transparent">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}"><span class="fas fa-home"></span></a></li>
+        <li class="breadcrumb-item active">{{ locker.name }}</li>
+      </ol>
+    </nav>
+    <div class="d-flex justify-content-between w-100 flex-wrap">
+      <div class="mb-3 mb-lg-0">
+        <h1 class="h4">
+          {{ locker.name }}
+          {% if locker.is_online %}
+            <span class="badge badge-success ml-1" style="font-size:11px;vertical-align:middle;">ONLINE</span>
+          {% else %}
+            <span class="badge badge-secondary ml-1" style="font-size:11px;vertical-align:middle;">OFFLINE</span>
+          {% endif %}
+        </h1>
+        <p class="mb-0">
+          <span class="fas fa-map-marker-alt mr-1 text-danger"></span>{{ locker.location }}
+        </p>
+      </div>
+      <a href="{% url 'my_bookings' %}" class="btn btn-outline-secondary btn-sm align-self-start">
+        <span class="fas fa-list mr-1"></span>Ngăn của tôi
+      </a>
+    </div>
+  </div>
+
+\
+
+  {% if not locker.is_online %}
+    <div class="alert alert-warning">
+      <span class="fas fa-exclamation-triangle mr-2"></span>
+      Tủ này hiện đang <strong>offline</strong>. Vui lòng thử lại sau.
+    </div>
+  {% elif not locker.has_compartments %}
+    <div class="alert alert-info">
+      <span class="fas fa-info-circle mr-2"></span>
+      Tủ chưa được khởi tạo ngăn. Vui lòng liên hệ quản trị viên.
+    </div>
+  {% else %}
+
+  <div class="card border-light shadow-sm mb-4">
+    <div class="card-header py-2">
+      <div class="d-flex align-items-center justify-content-between">
+        <small class="text-muted">
+          <span class="fas fa-hand-pointer mr-1"></span>
+          Nhấn vào ngăn <span class="text-success font-weight-bold">xanh</span> để gửi đồ
+        </small>
+        <div style="font-size:10px;color:#888;display:flex;gap:10px;">
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#68d391;margin-right:3px;box-shadow:0 0 4px #68d391;"></span>Trống</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#63b3ed;margin-right:3px;box-shadow:0 0 4px #63b3ed;"></span>Của bạn</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f6ad55;margin-right:3px;box-shadow:0 0 4px #f6ad55;"></span>Đang dùng</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#fc8181;margin-right:3px;box-shadow:0 0 4px #fc8181;"></span>Bảo trì</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body p-2">
+      <div class="locker-frame">
+
+        {# CỘT TRÁI — Ngăn 1 #}
+        {% if locker.comp_left %}
+        {% with comp=locker.comp_left %}
+        <div class="comp-cell comp-col-side {{ comp.status }}{% if comp.my_booking %} mine{% endif %}"
+             {% if comp.status == 'available' %}
+               data-toggle="modal" data-target="#modal-book-{{ comp.pk }}"
+             {% endif %}>
+          <div class="comp-num-tag">Ngăn {{ comp.number }}</div>
+          <div class="comp-dot"></div>
+          <span class="comp-status-tag">
+            {% if comp.my_booking %}Của bạn
+            {% elif comp.status == 'available' %}Trống
+            {% elif comp.status == 'occupied' %}Dùng
+            {% else %}Bảo trì{% endif %}
+          </span>
+          {% if comp.my_booking %}
+            <div class="comp-action-btn">
+              <a href="{% url 'unlock_compartment' comp.my_booking.unlock_token %}"
+                 class="btn btn-info" title="Mở cửa">
+                <i class="fas fa-lock-open"></i>
+              </a>
+              <button type="button" class="btn btn-danger"
+                      title="Trả ngăn"
+                      onclick="event.stopPropagation(); returnComp('Ngăn {{ comp.number }}', '{% url "return_compartment" comp.my_booking.unlock_token %}');">
+                <i class="fas fa-sign-out-alt"></i>
+              </button>
+            </div>
+          {% elif comp.status == 'available' %}
+            <div class="comp-action-btn mt-1">
+              <span style="font-size:9px;color:rgba(255,255,255,.5);">
+                <i class="fas fa-plus-circle"></i> Gửi đồ
+              </span>
+            </div>
+          {% endif %}
+        </div>
+        {% endwith %}
+        {% endif %}
+
+        <div class="locker-hinge"></div>
+
+        {# CỘT GIỮA — Ngăn 2–5 #}
+        <div class="comp-col-middle">
+          {% for comp in locker.comp_middle %}
+          <div class="comp-cell {{ comp.status }}{% if comp.my_booking %} mine{% endif %}"
+               {% if comp.status == 'available' %}
+                 data-toggle="modal" data-target="#modal-book-{{ comp.pk }}"
+               {% endif %}>
+            <div class="comp-row">
+              <div class="comp-num-tag">Ngăn {{ comp.number }}</div>
+              <div class="comp-dot"></div>
+              <span class="comp-status-tag">
+                {% if comp.my_booking %}Của bạn
+                {% elif comp.status == 'available' %}Trống
+                {% elif comp.status == 'occupied' %}Dùng
+                {% else %}Bảo trì{% endif %}
+              </span>
+              {% if comp.my_booking %}
+                <div class="comp-action-btn">
+                  <a href="{% url 'unlock_compartment' comp.my_booking.unlock_token %}"
+                     class="btn btn-info" title="Mở cửa">
+                    <i class="fas fa-lock-open"></i>
+                  </a>
+                  <button type="button" class="btn btn-danger"
+                          title="Trả ngăn"
+                          onclick="event.stopPropagation(); returnComp('Ngăn {{ comp.number }}', '{% url 'return_compartment' comp.my_booking.unlock_token %}');">
+                    <i class="fas fa-sign-out-alt"></i>
+                  </button>
+                </div>
+              {% elif comp.status == 'available' %}
+                <div class="comp-action-btn">
+                  <span style="font-size:8px;color:rgba(255,255,255,.4);">
+                    <i class="fas fa-plus-circle"></i>
+                  </span>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="locker-hinge"></div>
+
+        {# CỘT PHẢI — Ngăn 6 #}
+        {% if locker.comp_right %}
+        {% with comp=locker.comp_right %}
+        <div class="comp-cell comp-col-side {{ comp.status }}{% if comp.my_booking %} mine{% endif %}"
+             {% if comp.status == 'available' %}
+               data-toggle="modal" data-target="#modal-book-{{ comp.pk }}"
+             {% endif %}>
+          <div class="comp-num-tag">Ngăn {{ comp.number }}</div>
+          <div class="comp-dot"></div>
+          <span class="comp-status-tag">
+            {% if comp.my_booking %}Của bạn
+            {% elif comp.status == 'available' %}Trống
+            {% elif comp.status == 'occupied' %}Dùng
+            {% else %}Bảo trì{% endif %}
+          </span>
+          {% if comp.my_booking %}
+            <div class="comp-action-btn">
+              <a href="{% url 'unlock_compartment' comp.my_booking.unlock_token %}"
+                 class="btn btn-info" title="Mở cửa">
+                <i class="fas fa-lock-open"></i>
+              </a>
+              <button type="button" class="btn btn-danger"
+                      title="Trả ngăn"
+                      onclick="event.stopPropagation(); returnComp('Ngăn {{ comp.number }}', '{% url "return_compartment" comp.my_booking.unlock_token %}');">
+                <i class="fas fa-sign-out-alt"></i>
+              </button>
+            </div>
+          {% elif comp.status == 'available' %}
+            <div class="comp-action-btn mt-1">
+              <span style="font-size:9px;color:rgba(255,255,255,.5);">
+                <i class="fas fa-plus-circle"></i> Gửi đồ
+              </span>
+            </div>
+          {% endif %}
+        </div>
+        {% endwith %}
+        {% endif %}
+
+      </div>{# end locker-frame #}
+    </div>
+  </div>
+
+  {% endif %}{# end is_online #}
+
+  <!-- Modal đăng ký ngăn -->
+  {% for comp in compartments %}
+  {% if comp.status == 'available' %}
+  <div class="modal fade" id="modal-book-{{ comp.pk }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-0">
+          <h6 class="modal-title">
+            <span class="fas fa-lock mr-2 text-success"></span>Gửi đồ — Ngăn {{ comp.number }}
+          </h6>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <form method="POST" action="{% url 'book_compartment' comp.pk %}">
+          {% csrf_token %}
+          <div class="modal-body pt-2">
+            <p class="text-muted small mb-3">
+              <strong>{{ locker.name }}</strong> · {{ locker.location }}
+            </p>
+            <div class="form-group mb-0">
+              <label class="small font-weight-bold">Ghi chú <small class="text-muted">(tuỳ chọn)</small></label>
+              <input type="text" name="note" class="form-control form-control-sm"
+                     placeholder="VD: Ba lô màu xanh, túi xách...">
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-link text-muted" data-dismiss="modal">Huỷ</button>
+            <button type="submit" class="btn btn-success">
+              <span class="fas fa-lock mr-1"></span>Xác nhận gửi đồ
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  <!-- Modal xác nhận trả ngăn -->
+  <div class="modal fade" id="modalReturnComp" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-0">
+          <h6 class="modal-title">
+            <span class="fas fa-sign-out-alt mr-2 text-danger"></span>Xác nhận trả ngăn
+          </h6>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body pt-2">
+          <p class="mb-1">Trả <strong id="returnCompLabel"></strong>?</p>
+          <small class="text-muted">Ngăn sẽ được giải phóng và sẵn sàng cho người khác.</small>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-link text-muted" data-dismiss="modal">Huỷ</button>
+          <form id="formReturnComp" method="POST" class="mb-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+              <span class="fas fa-sign-out-alt mr-1"></span>Xác nhận
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ─── Section: Lịch sử tất cả ngăn của tôi ─── #}
+  {% if all_user_bookings %}
+  <div class="container-fluid px-4 pb-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex align-items-center py-2">
+        <span class="fas fa-history me-2 text-secondary"></span>
+        <h6 class="mb-0 fw-bold">Lịch sử ngăn của tôi</h6>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Tủ</th>
+                <th>Ngăn</th>
+                <th>Trạng thái</th>
+                <th>Bắt đầu</th>
+                <th class="pe-3 text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bk in all_user_bookings %}
+              <tr>
+                <td class="ps-3">
+                  <a href="{% url 'locker_qr' bk.compartment.locker.uuid_token %}" class="text-decoration-none">
+                    {{ bk.compartment.locker.name }}
+                  </a>
+                </td>
+                <td>Ngăn {{ bk.compartment.number }}</td>
+                <td>
+                  {% if bk.status == 'active' %}
+                    <span class="badge bg-success">Đang dùng</span>
+                  {% elif bk.status == 'completed' %}
+                    <span class="badge bg-secondary">Đã trả</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark">{{ bk.get_status_display }}</span>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ bk.started_at|date:"d/m H:i" }}</td>
+                <td class="pe-3 text-center">
+                  {% if bk.status == 'active' %}
+                    <a href="{% url 'unlock_compartment' bk.unlock_token %}"
+                       class="btn btn-xs btn-success py-0 px-2 me-1" title="Mở cửa">
+                      <span class="fas fa-lock-open"></span>
+                    </a>
+                    <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2" title="Trả ngăn"
+                      onclick="returnComp('{{ bk.compartment.locker.name }} — Ngăn {{ bk.compartment.number }}', '{% url "return_compartment" bk.unlock_token %}')">
+                      <span class="fas fa-sign-out-alt"></span>
+                    </button>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% include 'includes/footer.html' %}
+</main>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function returnComp(label, url) {
+  document.getElementById('returnCompLabel').textContent = label;
+  document.getElementById('formReturnComp').action = url;
+  new bootstrap.Modal(document.getElementById('modalReturnComp')).show();
+}
+</script>
+{% endblock %}
